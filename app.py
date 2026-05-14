@@ -1,5 +1,6 @@
 import os
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from extensions import db, login_manager, oauth
 from dotenv import load_dotenv
 
@@ -12,6 +13,7 @@ if os.environ.get('FLASK_ENV') == 'development':
 
 def create_app():
     app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-this-in-production')
 
