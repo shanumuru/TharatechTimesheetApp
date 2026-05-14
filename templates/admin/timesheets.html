@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}View Timesheets – Tharatech Timesheet{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-table"></i> View Timesheets</h2>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">User</label>
+        <select name="user_id" class="form-select" id="userSelect">
+          <option value="">– Select User –</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {{ 'selected' if sel_user_id and sel_user_id == u.id }}>
+            {{ u.username }} ({{ u.email }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-5">
+        <label class="form-label fw-semibold">Pay Period</label>
+        <select name="pay_period_id" class="form-select">
+          {% if not available_periods %}
+          <option value="">– Select a user first –</option>
+          {% else %}
+          <option value="">– Select Pay Period –</option>
+          {% for p in available_periods %}
+          <option value="{{ p.id }}" {{ 'selected' if selected_pay_period and selected_pay_period.id == p.id }}>
+            {{ p.label }}
+          </option>
+          {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-search"></i> View Timesheet
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_user and selected_pay_period %}
+
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">
+      <i class="bi bi-person"></i> {{ selected_user.username }} &mdash; {{ selected_pay_period.label }}
+    </span>
+    <div class="d-flex align-items-center gap-2">
+      {% if timesheet_status %}
+        {% if timesheet_status.status == 'approved' %}
+        <span class="badge bg-success fs-6">
+          <i class="bi bi-check-circle me-1"></i> Approved
+          {% if timesheet_status.approved_at %}&mdash; {{ timesheet_status.approved_at.strftime('%b %d, %Y') }}{% endif %}
+        </span>
+        {% elif timesheet_status.status == 'submitted' %}
+        <span class="badge bg-warning text-dark fs-6">
+          <i class="bi bi-hourglass-split me-1"></i> Pending Approval
+        </span>
+        {% elif timesheet_status.status == 'rejected' %}
+        <span class="badge bg-danger fs-6">
+          <i class="bi bi-x-circle me-1"></i> Rejected
+        </span>
+        {% endif %}
+      {% endif %}
+      {% if not (timesheet_status and timesheet_status.status == 'approved') %}
+      <form method="post" action="{{ url_for('admin.approve_timesheet') }}">
+        <input type="hidden" name="user_id" value="{{ selected_user.id }}">
+        <input type="hidden" name="pay_period_id" value="{{ selected_pay_period.id }}">
+        <button type="submit" class="btn btn-success btn-sm"
+                onclick="return confirm('Approve this timesheet? The user will no longer be able to edit it.')">
+          <i class="bi bi-check-circle"></i> Approve
+        </button>
+      </form>
+      {% if not (timesheet_status and timesheet_status.status == 'rejected') %}
+      <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">
+        <i class="bi bi-x-circle"></i> Reject
+      </button>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    {% if summaries %}
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Project</th>
+          <th class="text-center">Total Hours Worked</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in summaries %}
+        <tr>
+          <td class="fw-semibold">{{ s.project.name }}</td>
+          <td class="text-center text-primary fw-semibold">{{ '%.1f'|format(s.total_hours) }} hrs</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td>Grand Total</td>
+          <td class="text-center text-primary">
+            {% set gt = namespace(v=0) %}
+            {% for s in summaries %}{% set gt.v = gt.v + s.total_hours %}{% endfor %}
+            {{ '%.1f'|format(gt.v) }} hrs
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <div class="p-4 text-center text-muted">No hours logged for this pay period.</div>
+    {% endif %}
+  </div>
+</div>
+
+{# -- Hours Verification section (commented out) --
+<div class="card mb-4">
+  <div class="card-header fw-semibold">
+    <i class="bi bi-clipboard-check"></i> Hours Verification
+  </div>
+  <div class="card-body">
+    ...
+  </div>
+</div>
+#}
+
+<div class="card">
+  <div class="card-header fw-semibold"><i class="bi bi-paperclip"></i> Attachments</div>
+  <div class="card-body">
+    {% if attachments %}
+    <div class="row g-3">
+      {% for att in attachments %}
+      <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+        <div class="card h-100">
+          <a href="{{ url_for('user.view_attachment', attachment_id=att.id) }}" target="_blank">
+            <img src="{{ url_for('user.view_attachment', attachment_id=att.id) }}"
+                 class="card-img-top" style="height:100px;object-fit:cover;"
+                 alt="{{ att.original_filename }}">
+          </a>
+          <div class="card-body p-2">
+            <div class="text-truncate small fw-semibold" title="{{ att.original_filename }}">{{ att.original_filename }}</div>
+            <div class="text-muted" style="font-size:.75rem">{{ att.uploaded_at.strftime('%b %d, %H:%M') }}</div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted text-center mb-0">No attachments for this pay period.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger"><i class="bi bi-x-circle me-1"></i> Reject Timesheet</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('admin.reject_timesheet') }}">
+        <div class="modal-body">
+          <input type="hidden" name="user_id" value="{{ selected_user.id if selected_user }}">
+          <input type="hidden" name="pay_period_id" value="{{ selected_pay_period.id if selected_pay_period }}">
+          <p class="text-muted">The timesheet will be sent back to the user for correction. They will be able to edit and resubmit it.</p>
+          <label class="form-label fw-semibold">Reason for rejection <span class="text-muted fw-normal">(optional)</span></label>
+          <textarea name="rejection_reason" class="form-control" rows="3"
+                    placeholder="e.g. Hours do not match the attached screenshot..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-x-circle me-1"></i> Confirm Rejection
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('userSelect').addEventListener('change', function () {
+  const uid = this.value;
+  window.location.href = uid ? `?user_id=${uid}` : '?';
+});
+</script>
+{% endblock %}

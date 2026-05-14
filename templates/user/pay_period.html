@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}{{ pp.label }} – Tharatech Timesheet{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center mb-4 gap-3 flex-wrap">
+  <a href="{{ url_for('user.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Back
+  </a>
+  <h2 class="mb-0"><i class="bi bi-table"></i> {{ pp.label }}</h2>
+  {% if ts %}
+    {% if ts.status == 'approved' %}
+    <span class="badge bg-success fs-6"><i class="bi bi-check-circle me-1"></i> Approved</span>
+    {% elif ts.status == 'submitted' %}
+    <span class="badge bg-warning text-dark fs-6"><i class="bi bi-hourglass-split me-1"></i> Submitted – Pending Approval</span>
+    {% elif ts.status == 'rejected' %}
+    <span class="badge bg-danger fs-6"><i class="bi bi-x-circle me-1"></i> Rejected – Needs Revision</span>
+    {% endif %}
+  {% endif %}
+</div>
+
+{% if locked %}
+<div class="alert alert-warning d-flex align-items-center mb-4">
+  <i class="bi bi-lock-fill me-2 fs-5"></i>
+  {% if ts and ts.status == 'approved' %}
+    This timesheet has been approved and is locked.
+  {% else %}
+    This timesheet has been submitted and is awaiting approval.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if ts and ts.status == 'rejected' %}
+<div class="alert alert-danger mb-4">
+  <div class="fw-semibold mb-1"><i class="bi bi-x-circle me-1"></i> This timesheet was rejected and needs revision.</div>
+  {% if ts.rejection_reason %}
+  <div><strong>Reason:</strong> {{ ts.rejection_reason }}</div>
+  {% endif %}
+  <div class="mt-1 small text-muted">Please make the necessary changes and resubmit.</div>
+</div>
+{% endif %}
+
+<!-- Total Hours Worked by Project -->
+<form method="post" id="timesheetForm">
+  <div class="card mb-4">
+    <div class="card-header fw-semibold"><i class="bi bi-clock"></i> Total Hours Worked</div>
+    <div class="card-body p-0">
+      {% if projects %}
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Project</th>
+            <th style="width:200px">Total Hours Worked</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for project in projects %}
+          <tr>
+            <td class="align-middle fw-semibold">{{ project.name }}</td>
+            <td>
+              {% if locked %}
+              <span class="fw-bold text-primary">
+                {{ '%.1f'|format(hours_map.get(project.id, 0)) if hours_map.get(project.id, 0) > 0 else '–' }}
+              </span>
+              {% else %}
+              <div class="input-group">
+                <input type="number"
+                       name="hours_{{ project.id }}"
+                       value="{{ '%.1f'|format(hours_map.get(project.id, 0)) if hours_map.get(project.id, 0) > 0 else '' }}"
+                       class="form-control"
+                       min="0" max="999" step="0.5" placeholder="0.0">
+                <span class="input-group-text">hrs</span>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="table-light fw-bold">
+          <tr>
+            <td>Grand Total</td>
+            <td class="text-primary">
+              {% set total = namespace(v=0) %}
+              {% for project in projects %}{% set total.v = total.v + hours_map.get(project.id, 0) %}{% endfor %}
+              {{ '%.1f'|format(total.v) }} hrs
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+      {% else %}
+      <div class="p-4 text-center text-muted">
+        <i class="bi bi-exclamation-circle"></i> No active projects. Ask your administrator to add projects.
+      </div>
+      {% endif %}
+    </div>
+
+    {% if not locked and projects %}
+    <div class="card-footer d-flex justify-content-end gap-2">
+      <button type="submit" name="action" value="save" class="btn btn-outline-primary">
+        <i class="bi bi-save me-1"></i> Save Draft
+      </button>
+      <button type="submit" name="action" value="submit" class="btn btn-success"
+              onclick="return confirm('Submit this timesheet for approval? You will not be able to edit it after submitting.')">
+        <i class="bi bi-send me-1"></i> Submit Timesheet
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Attachments -->
+<div class="card">
+  <div class="card-header fw-semibold"><i class="bi bi-paperclip"></i> Attachments</div>
+  <div class="card-body">
+    {% if not locked %}
+    <form method="post"
+          action="{{ url_for('user.upload_attachment', year=pp.year, month=pp.month, period_num=pp.period_num) }}"
+          enctype="multipart/form-data" class="mb-4">
+      <div class="row g-2 align-items-center">
+        <div class="col">
+          <input type="file" name="file" class="form-control" accept=".jpg,.jpeg,.png,.gif" required>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-outline-primary">
+            <i class="bi bi-upload"></i> Upload
+          </button>
+        </div>
+      </div>
+      <div class="form-text">Accepted formats: JPG, PNG, GIF &mdash; max 10 MB per file.</div>
+    </form>
+    {% endif %}
+
+    {% if attachments %}
+    <div class="row g-3">
+      {% for att in attachments %}
+      <div class="col-xl-2 col-lg-3 col-md-4 col-6">
+        <div class="card h-100">
+          <a href="{{ url_for('user.view_attachment', attachment_id=att.id) }}" target="_blank">
+            <img src="{{ url_for('user.view_attachment', attachment_id=att.id) }}"
+                 class="card-img-top" style="height:100px;object-fit:cover;"
+                 alt="{{ att.original_filename }}">
+          </a>
+          <div class="card-body p-2">
+            <div class="text-truncate small fw-semibold" title="{{ att.original_filename }}">{{ att.original_filename }}</div>
+            <div class="text-muted" style="font-size:.75rem">{{ att.uploaded_at.strftime('%b %d, %H:%M') }}</div>
+          </div>
+          {% if not locked %}
+          <div class="card-footer p-1">
+            <form method="post" action="{{ url_for('user.delete_attachment', attachment_id=att.id) }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger w-100"
+                      onclick="return confirm('Delete this attachment?')">
+                <i class="bi bi-trash"></i> Delete
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted text-center mb-0"><i class="bi bi-image"></i> No attachments uploaded yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

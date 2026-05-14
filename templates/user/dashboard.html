@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}My Timesheets – Tharatech Timesheet{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-calendar3"></i> My Timesheets</h2>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newTimesheetModal">
+    <i class="bi bi-plus-circle me-1"></i> New Timesheet
+  </button>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-current">
+      <i class="bi bi-pencil-square me-1"></i> Current Timesheets
+      {% if editable_data %}<span class="badge bg-primary ms-1">{{ editable_data|length }}</span>{% endif %}
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">
+      <i class="bi bi-check-circle me-1"></i> Submitted / Approved
+      {% if past_data %}<span class="badge bg-secondary ms-1">{{ past_data|length }}</span>{% endif %}
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- Current Timesheet -->
+  <div class="tab-pane fade show active" id="tab-current">
+    {% if editable_data %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Period</th>
+              <th>Dates</th>
+              <th class="text-center">Total Hours</th>
+              <th class="text-center">Attachments</th>
+              <th>Status</th>
+              <th style="width:120px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in editable_data %}
+            {% set pp = item.pay_period %}
+            <tr>
+              <td>
+                <span class="fw-semibold">{{ pp.start_date.strftime('%B %Y') }}</span>
+                <span class="badge bg-{{ 'primary' if pp.period_num == 1 else 'info text-dark' }} ms-2">
+                  Period {{ pp.period_num }}
+                </span>
+              </td>
+              <td class="text-muted small">{{ pp.start_date.strftime('%b %d') }} – {{ pp.end_date.strftime('%b %d') }}</td>
+              <td class="text-center fw-semibold text-primary">
+                {{ '%.1f'|format(item.total_hours) if item.total_hours > 0 else '–' }}
+              </td>
+              <td class="text-center text-muted">{{ item.attachment_count or '–' }}</td>
+              <td>
+                {% if item.status == 'rejected' %}
+                <span class="badge bg-danger">
+                  <i class="bi bi-x-circle me-1"></i> Rejected
+                </span>
+                {% if item.rejection_reason %}
+                <div class="text-danger small mt-1" style="max-width:220px">{{ item.rejection_reason }}</div>
+                {% endif %}
+                {% else %}
+                <span class="badge bg-secondary">
+                  <i class="bi bi-pencil me-1"></i> Draft
+                </span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('user.pay_period', year=pp.year, month=pp.month, period_num=pp.period_num) }}"
+                   class="btn btn-sm {{ 'btn-warning' if item.status == 'rejected' else 'btn-outline-primary' }}">
+                  <i class="bi bi-pencil-square"></i>
+                  {{ 'Resubmit' if item.status == 'rejected' else 'Edit' }}
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-light text-muted text-center py-5">
+      <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+      No timesheets in progress. Click <strong>New Timesheet</strong> to get started.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Approved / Submitted Timesheets -->
+  <div class="tab-pane fade" id="tab-history">
+    {% if past_data %}
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Period</th>
+              <th>Dates</th>
+              <th class="text-center">Total Hours</th>
+              <th class="text-center">Attachments</th>
+              <th>Status</th>
+              <th style="width:110px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in past_data %}
+            {% set pp = item.pay_period %}
+            <tr>
+              <td>
+                <span class="fw-semibold">{{ pp.start_date.strftime('%B %Y') }}</span>
+                <span class="badge bg-{{ 'primary' if pp.period_num == 1 else 'info text-dark' }} ms-2">
+                  Period {{ pp.period_num }}
+                </span>
+              </td>
+              <td class="text-muted small">{{ pp.start_date.strftime('%b %d') }} – {{ pp.end_date.strftime('%b %d') }}</td>
+              <td class="text-center fw-semibold text-primary">
+                {{ '%.1f'|format(item.total_hours) if item.total_hours > 0 else '–' }}
+              </td>
+              <td class="text-center text-muted">{{ item.attachment_count or '–' }}</td>
+              <td>
+                {% if item.status == 'approved' %}
+                <span class="badge bg-success">
+                  <i class="bi bi-check-circle me-1"></i> Approved
+                  {% if item.approved_at %}&bull; {{ item.approved_at.strftime('%b %d, %Y') }}{% endif %}
+                </span>
+                {% else %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-hourglass-split me-1"></i> Pending Approval
+                </span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <a href="{{ url_for('user.pay_period', year=pp.year, month=pp.month, period_num=pp.period_num) }}"
+                   class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-eye"></i> View
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert alert-light text-muted text-center py-5">
+      <i class="bi bi-check-circle fs-2 d-block mb-2 text-secondary"></i>
+      No submitted or approved timesheets yet.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- New Timesheet Modal -->
+<div class="modal fade" id="newTimesheetModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-plus-circle me-1"></i> New Timesheet</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label fw-semibold">Select Pay Period</label>
+        <select id="newPPSelector" class="form-select">
+          <option value="">– Select a pay period –</option>
+          {% for p in available_periods %}
+          <option value="{{ url_for('user.pay_period', year=p.year, month=p.month, period_num=p.period_num) }}">
+            {{ p.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="goToTimesheet">
+          <i class="bi bi-arrow-right-circle me-1"></i> Go
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('goToTimesheet').addEventListener('click', () => {
+  const url = document.getElementById('newPPSelector').value;
+  if (url) window.location.href = url;
+});
+</script>
+{% endblock %}
