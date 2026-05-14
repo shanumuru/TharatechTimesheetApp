@@ -5,30 +5,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Allow OAuth over plain HTTP in development
-os.environ.setdefault('OAUTHLIB_INSECURE_TRANSPORT', '1')
-
-# Disable SSL verification globally to work around corporate certificate inspection
-import ssl
-import urllib3
-import requests
-
-ssl._create_default_https_context = ssl._create_unverified_context
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-_orig_send = requests.Session.send
-def _send_no_verify(self, r, **kwargs):
-    kwargs['verify'] = False
-    return _orig_send(self, r, **kwargs)
-requests.Session.send = _send_no_verify
+# Allow OAuth over plain HTTP in local development only
+if os.environ.get('FLASK_ENV') == 'development':
+    os.environ.setdefault('OAUTHLIB_INSECURE_TRANSPORT', '1')
 
 
 def create_app():
     app = Flask(__name__)
 
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-this-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///timesheet.db'
+
+    # Use PostgreSQL on Railway (DATABASE_URL), fall back to SQLite locally
+    database_url = os.environ.get('DATABASE_URL', 'sqlite:///timesheet.db')
+    # Railway provides postgres:// but SQLAlchemy requires postgresql://
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                  'static', 'uploads')
     app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
@@ -64,6 +58,7 @@ def create_app():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     with app.app_context():
+        db.create_all()
         from sqlalchemy import text, inspect as sa_inspect
         try:
             att_cols = [c['name'] for c in sa_inspect(db.engine).get_columns('attachments')]
@@ -93,4 +88,5 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV') == 'development')
