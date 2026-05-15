@@ -14,6 +14,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=True)
     google_id = db.Column(db.String(256), unique=True, nullable=True)
     role = db.Column(db.String(20), nullable=False, default='user')
+    user_type = db.Column(db.String(20), nullable=True)  # contractor | employee
     active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

@@ -203,6 +203,16 @@ def users():
                 db.session.commit()
                 flash(f'Password reset for "{user.username}".', 'success')
 
+        elif action == 'set_user_type':
+            user = User.query.get_or_404(request.form.get('user_id'))
+            user_type = request.form.get('user_type', '').strip()
+            if user_type in ('contractor', 'employee', ''):
+                user.user_type = user_type or None
+                db.session.commit()
+                flash(f'User type updated for "{user.username}".', 'success')
+            else:
+                flash('Invalid user type.', 'danger')
+
         return redirect(url_for('admin.users'))
 
     users_list = User.query.order_by(User.role, User.username).all()

@@ -84,6 +84,13 @@ def create_app():
                 db.session.commit()
         except Exception:
             pass
+        try:
+            u_cols = [c['name'] for c in sa_inspect(db.engine).get_columns('users')]
+            if 'user_type' not in u_cols:
+                db.session.execute(text('ALTER TABLE users ADD COLUMN user_type VARCHAR(20)'))
+                db.session.commit()
+        except Exception:
+            pass
 
     return app
 
