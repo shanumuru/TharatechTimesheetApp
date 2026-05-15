@@ -118,12 +118,15 @@ def projects():
         if action == 'create':
             name = request.form.get('name', '').strip()
             description = request.form.get('description', '').strip()
+            applies_to_list = request.form.getlist('applies_to')
+            applies_to = ','.join(applies_to_list) if applies_to_list else 'contractor,employee'
             if not name:
                 flash('Project name is required.', 'danger')
             elif Project.query.filter_by(name=name).first():
                 flash('A project with that name already exists.', 'danger')
             else:
                 project = Project(name=name, description=description,
+                                  applies_to=applies_to,
                                   created_by_id=current_user.id)
                 db.session.add(project)
                 db.session.commit()
@@ -133,6 +136,8 @@ def projects():
             project = Project.query.get_or_404(request.form.get('project_id'))
             name = request.form.get('name', '').strip()
             description = request.form.get('description', '').strip()
+            applies_to_list = request.form.getlist('applies_to')
+            applies_to = ','.join(applies_to_list) if applies_to_list else 'contractor,employee'
             if not name:
                 flash('Project name is required.', 'danger')
             else:
@@ -142,6 +147,7 @@ def projects():
                 else:
                     project.name = name
                     project.description = description
+                    project.applies_to = applies_to
                     db.session.commit()
                     flash(f'Project "{name}" updated.', 'success')
 

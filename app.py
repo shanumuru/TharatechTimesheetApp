@@ -63,6 +63,13 @@ def create_app():
         db.create_all()
         from sqlalchemy import text, inspect as sa_inspect
         try:
+            p_cols = [c['name'] for c in sa_inspect(db.engine).get_columns('projects')]
+            if 'applies_to' not in p_cols:
+                db.session.execute(text('ALTER TABLE projects ADD COLUMN applies_to VARCHAR(50)'))
+                db.session.commit()
+        except Exception:
+            pass
+        try:
             att_cols = [c['name'] for c in sa_inspect(db.engine).get_columns('attachments')]
             if 'extracted_hours' not in att_cols:
                 db.session.execute(text('ALTER TABLE attachments ADD COLUMN extracted_hours REAL'))

@@ -118,7 +118,9 @@ def pay_period(year, month, period_num):
     pp = PayPeriod.get_or_create(year, month, period_num)
     locked = _is_locked(current_user.id, pp.id)
     ts = _get_ts(current_user.id, pp.id)
-    projects = Project.query.filter_by(active=True).order_by(Project.name).all()
+    effective_type = current_user.user_type or 'contractor'
+    all_projects = Project.query.filter_by(active=True).order_by(Project.name).all()
+    projects = [p for p in all_projects if effective_type in (p.applies_to or 'contractor,employee').split(',')]
 
     if request.method == 'POST':
         action = request.form.get('action')
