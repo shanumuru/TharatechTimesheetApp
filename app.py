@@ -23,6 +23,11 @@ def create_app():
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+    if database_url.startswith('sqlite'):
+        print('WARNING: Using SQLite — data will be lost on Railway redeploy. Set DATABASE_URL to use PostgreSQL.')
+    else:
+        print('INFO: Using PostgreSQL — data will persist across redeploys.')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)),
