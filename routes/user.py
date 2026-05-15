@@ -157,6 +157,27 @@ def pay_period(year, month, period_num):
                     db.session.delete(existing)
 
             if action == 'submit':
+                # Always save hours first so nothing is lost
+                db.session.commit()
+
+                total_hours = sum(
+                    max(0.0, float(request.form.get(f'hours_{p.id}', '') or 0))
+                    for p in projects
+                )
+                att_count = Attachment.query.filter_by(
+                    user_id=current_user.id, pay_period_id=pp.id).count()
+
+                if total_hours <= 0:
+                    flash('Please enter your total hours worked before submitting.', 'danger')
+                    return redirect(url_for('user.pay_period', year=year, month=month,
+                                            period_num=period_num))
+
+                if att_count == 0:
+                    flash('Please upload your Mindcomputing timesheet screenshot before submitting.', 'danger')
+                    return redirect(url_for('user.pay_period', year=year, month=month,
+                                            period_num=period_num))
+
+                ts = _get_ts(current_user.id, pp.id)
                 if not ts:
                     ts = TimesheetStatus(user_id=current_user.id, pay_period_id=pp.id)
                     db.session.add(ts)
@@ -178,13 +199,18 @@ def pay_period(year, month, period_num):
                    .filter_by(user_id=current_user.id, pay_period_id=pp.id)
                    .order_by(Attachment.uploaded_at).all())
 
+    has_hours = sum(hours_map.values()) > 0
+    has_attachments = len(attachments) > 0
+
     return render_template('user/pay_period.html',
                            pp=pp,
                            projects=projects,
                            hours_map=hours_map,
                            attachments=attachments,
                            ts=ts,
-                           locked=locked)
+                           locked=locked,
+                           has_hours=has_hours,
+                           has_attachments=has_attachments)
 
 
 @user_bp.route('/timesheet/<int:year>/<int:month>/<int:period_num>/upload',
